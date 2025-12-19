@@ -16,23 +16,38 @@ const App: React.FC = () => {
 
   const [lastPraise, setLastPraise] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
-
-  // Đảm bảo âm thanh được "đánh thức" ngay khi có tương tác đầu tiên
-  const wakeUpSound = () => {
-    soundService.resume();
-  };
-
-  const toggleSound = () => {
-    wakeUpSound();
-    const newVal = !state.isSoundEnabled;
-    soundService.setEnabled(newVal);
-    setState(prev => ({ ...prev, isSoundEnabled: newVal }));
-    if (newVal) soundService.playClick();
-  };
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   const currentGame = useMemo(() => 
     ROADMAP.find(g => g.id === state.selectedGameId) || null
   , [state.selectedGameId]);
+
+  const isEnglishGame = currentGame?.category === 'English';
+  const gameLang = isEnglishGame ? 'en-US' : 'vi-VN';
+
+  // Đọc hướng dẫn khi vào màn chơi mới
+  useEffect(() => {
+    if (state.screen === 'PLAYING' && currentGame) {
+      const level = currentGame.levels[state.currentLevelIndex];
+      // Delay một chút để bé định hình
+      setTimeout(() => {
+        soundService.speak(level.instruction, gameLang);
+      }, 500);
+    }
+  }, [state.screen, state.currentLevelIndex, currentGame, gameLang]);
+
+  const wakeUpSound = () => {
+    if (!hasInteracted) setHasInteracted(true);
+    soundService.resume();
+  };
+
+  const toggleSound = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    wakeUpSound();
+    const newVal = !state.isSoundEnabled;
+    soundService.setEnabled(newVal);
+    setState(prev => ({ ...prev, isSoundEnabled: newVal }));
+  };
 
   const progress = useMemo(() => {
     if (!currentGame) return 0;
@@ -43,6 +58,10 @@ const App: React.FC = () => {
     wakeUpSound();
     soundService.playClick();
     setState(prev => ({ ...prev, selectedGameId: gameId, screen: 'START', currentLevelIndex: 0, score: 0 }));
+    
+    // Đọc tên game khi chọn
+    const game = ROADMAP.find(g => g.id === gameId);
+    if (game) soundService.speak(game.title.split('–')[0], 'vi-VN');
   };
 
   const startGame = () => {
@@ -51,21 +70,19 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, screen: 'PLAYING' }));
   };
 
-  const handleCorrect = () => {
+  const handleOptionClick = (opt: any) => {
     wakeUpSound();
-    soundService.playSuccess();
-    const randomPraise = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
-    setLastPraise(randomPraise);
-    setState(prev => ({ ...prev, screen: 'CELEBRATION', score: prev.score + 1 }));
-  };
+    // Đọc tên vật thể bé vừa chọn
+    soundService.speak(opt.label, gameLang);
 
-  const handleIncorrect = () => {
-    wakeUpSound();
-    soundService.playIncorrect();
-    if (currentGame) {
-      const level = currentGame.levels[state.currentLevelIndex];
-      const correct = level.options.find(o => o.isCorrect);
-      alert(`Gợi ý cho bé: Hãy thử chọn '${correct?.label}' nha! ${correct?.icon}`);
+    if (opt.isCorrect) {
+      const randomPraise = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
+      setLastPraise(randomPraise);
+      // Phát âm thanh thắng cuộc và đọc lời khen
+      soundService.playSuccess(randomPraise, false);
+      setState(prev => ({ ...prev, screen: 'CELEBRATION', score: prev.score + 1 }));
+    } else {
+      soundService.playIncorrect();
     }
   };
 
@@ -101,6 +118,19 @@ const App: React.FC = () => {
 
     return (
       <div className="h-full overflow-y-auto bg-[#f8fafc] p-4 pb-24 scroll-smooth">
+        {!hasInteracted && (
+          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center text-white p-6 text-center">
+             <div className="text-8xl mb-6 animate-bounce">🧸</div>
+             <h2 className="text-3xl font-black mb-4">Chào mừng bé đến với Học Viện Siêu Nhí!</h2>
+             <button 
+                onClick={wakeUpSound}
+                className="bg-green-500 hover:bg-green-400 text-white px-10 py-4 rounded-full text-2xl font-black shadow-2xl active:scale-95 transition-all"
+             >
+               NHẤN ĐỂ BẮT ĐẦU HỌC 🔊
+             </button>
+          </div>
+        )}
+
         <header className="relative text-center mb-8 mt-4">
           <div className="absolute right-0 top-0">
              <button 
@@ -112,7 +142,7 @@ const App: React.FC = () => {
             </button>
           </div>
           <h1 className="text-3xl md:text-5xl font-black text-slate-800 mb-2 drop-shadow-sm">Học Viện Siêu Nhí 🧸</h1>
-          <p className="text-slate-500 font-medium">Series 100+ Game Giáo Dục Toàn Diện</p>
+          <p className="text-slate-500 font-medium">100+ Game: Nghe - Học - Chơi cùng bé</p>
         </header>
 
         <div className="flex flex-wrap justify-center gap-2 mb-8 sticky top-0 z-10 bg-[#f8fafc]/90 backdrop-blur py-3">
@@ -223,6 +253,12 @@ const App: React.FC = () => {
               <div className="bubble-pop">
                 <h2 className="text-3xl md:text-5xl font-black text-center text-slate-800 leading-tight">
                   {level.instruction}
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); soundService.speak(level.instruction, gameLang); }}
+                    className="ml-4 text-2xl align-middle bg-slate-100 p-2 rounded-full hover:bg-slate-200 active:scale-90"
+                  >
+                    🔊
+                  </button>
                 </h2>
               </div>
 
@@ -230,7 +266,7 @@ const App: React.FC = () => {
                 {level.options.map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={opt.isCorrect ? handleCorrect : handleIncorrect}
+                    onClick={() => handleOptionClick(opt)}
                     className="aspect-square flex flex-col items-center justify-center p-6 bg-white rounded-[3rem] shadow-xl border-4 border-slate-50 hover:border-slate-200 transition-all transform active:scale-90 group"
                   >
                     <span className="text-7xl md:text-8xl mb-4 group-hover:scale-110 transition-transform duration-300">{opt.icon}</span>

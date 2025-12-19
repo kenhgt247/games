@@ -2,6 +2,7 @@
 class SoundService {
   private audioCtx: AudioContext | null = null;
   private enabled: boolean = true;
+  private synth = window.speechSynthesis;
 
   private getCtx(): AudioContext {
     if (!this.audioCtx) {
@@ -24,11 +25,33 @@ class SoundService {
 
   setEnabled(val: boolean) {
     this.enabled = val;
-    if (val) this.resume();
+    if (val) {
+      this.resume();
+      this.speak("Âm thanh đã bật", "vi-VN");
+    } else {
+      this.synth.cancel();
+    }
   }
 
   getIsEnabled() {
     return this.enabled;
+  }
+
+  /**
+   * Phát giọng nói (TTS)
+   */
+  speak(text: string, lang: 'vi-VN' | 'en-US' = 'vi-VN') {
+    if (!this.enabled || !text) return;
+    
+    // Ngắt các câu đang nói dở để tránh chồng chéo
+    this.synth.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = 0.9; // Đọc chậm một chút cho bé dễ nghe
+    utterance.pitch = 1.2; // Giọng cao hơn một chút cho thân thiện
+    
+    this.synth.speak(utterance);
   }
 
   private playTone(freq: number, type: OscillatorType, duration: number, volume: number = 0.2, fadeOut: boolean = true) {
@@ -56,39 +79,33 @@ class SoundService {
   }
 
   playClick() {
-    // Tiếng click gỗ nhẹ nhàng
-    this.playTone(600, 'sine', 0.1, 0.15);
+    this.playTone(600, 'sine', 0.1, 0.1);
   }
 
   playIncorrect() {
-    // Tiếng "thump" trầm khi chọn sai
     this.playTone(150, 'triangle', 0.3, 0.2);
-    setTimeout(() => this.playTone(100, 'triangle', 0.3, 0.15), 50);
+    this.speak("Bé thử lại nhé", "vi-VN");
   }
 
-  playSuccess() {
-    // Tiếng "Ting Ting" vui tai đa âm
-    this.playTone(600, 'sine', 0.3, 0.2);
-    setTimeout(() => this.playTone(800, 'sine', 0.4, 0.2), 100);
-    setTimeout(() => this.playTone(1200, 'sine', 0.5, 0.1), 200);
+  playSuccess(praise: string, isEnglish: boolean = false) {
+    this.playTone(600, 'sine', 0.2, 0.15);
+    setTimeout(() => this.playTone(900, 'sine', 0.3, 0.15), 100);
+    // Đọc lời khen
+    this.speak(praise, isEnglish ? 'en-US' : 'vi-VN');
   }
 
   playLevelComplete() {
-    // Giai điệu ngắn vui nhộn
-    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    const notes = [523.25, 659.25, 783.99];
     notes.forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, 'sine', 0.4, 0.15), i * 150);
+      setTimeout(() => this.playTone(freq, 'sine', 0.3, 0.1), i * 150);
     });
   }
 
   playFinish() {
-    // Giai điệu chiến thắng hoành tráng
-    const melody = [523, 523, 659, 783, 1046, 783, 1046];
+    this.speak("Chúc mừng bé đã hoàn thành bài học!", "vi-VN");
+    const melody = [523, 659, 783, 1046];
     melody.forEach((freq, i) => {
-      setTimeout(() => {
-        this.playTone(freq, 'triangle', 0.6, 0.1);
-        this.playTone(freq * 1.5, 'sine', 0.4, 0.05);
-      }, i * 150);
+      setTimeout(() => this.playTone(freq, 'triangle', 0.5, 0.1), i * 200);
     });
   }
 }
