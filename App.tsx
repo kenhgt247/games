@@ -17,22 +17,13 @@ const App: React.FC = () => {
   const [lastPraise, setLastPraise] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
 
-  // Khởi tạo âm thanh ngay khi người dùng tương tác lần đầu với trang
-  useEffect(() => {
-    const handleFirstInteraction = () => {
-      soundService.init();
-      window.removeEventListener('touchstart', handleFirstInteraction);
-      window.removeEventListener('mousedown', handleFirstInteraction);
-    };
-    window.addEventListener('touchstart', handleFirstInteraction);
-    window.addEventListener('mousedown', handleFirstInteraction);
-    return () => {
-      window.removeEventListener('touchstart', handleFirstInteraction);
-      window.removeEventListener('mousedown', handleFirstInteraction);
-    };
-  }, []);
+  // Đảm bảo âm thanh được "đánh thức" ngay khi có tương tác đầu tiên
+  const wakeUpSound = () => {
+    soundService.resume();
+  };
 
   const toggleSound = () => {
+    wakeUpSound();
     const newVal = !state.isSoundEnabled;
     soundService.setEnabled(newVal);
     setState(prev => ({ ...prev, isSoundEnabled: newVal }));
@@ -49,16 +40,19 @@ const App: React.FC = () => {
   }, [state.currentLevelIndex, currentGame]);
 
   const selectGame = (gameId: string) => {
+    wakeUpSound();
     soundService.playClick();
     setState(prev => ({ ...prev, selectedGameId: gameId, screen: 'START', currentLevelIndex: 0, score: 0 }));
   };
 
   const startGame = () => {
+    wakeUpSound();
     soundService.playClick();
     setState(prev => ({ ...prev, screen: 'PLAYING' }));
   };
 
   const handleCorrect = () => {
+    wakeUpSound();
     soundService.playSuccess();
     const randomPraise = PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)];
     setLastPraise(randomPraise);
@@ -66,7 +60,8 @@ const App: React.FC = () => {
   };
 
   const handleIncorrect = () => {
-    soundService.playClick();
+    wakeUpSound();
+    soundService.playIncorrect();
     if (currentGame) {
       const level = currentGame.levels[state.currentLevelIndex];
       const correct = level.options.find(o => o.isCorrect);
@@ -89,6 +84,7 @@ const App: React.FC = () => {
   };
 
   const goBackToLobby = () => {
+    wakeUpSound();
     soundService.playClick();
     setState(prev => ({ ...prev, screen: 'LOBBY', selectedGameId: null }));
   };
@@ -121,7 +117,7 @@ const App: React.FC = () => {
 
         <div className="flex flex-wrap justify-center gap-2 mb-8 sticky top-0 z-10 bg-[#f8fafc]/90 backdrop-blur py-3">
           <button 
-            onClick={() => { soundService.playClick(); setFilter(null); }}
+            onClick={() => { wakeUpSound(); soundService.playClick(); setFilter(null); }}
             className={`px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all ${!filter ? 'bg-slate-800 text-white scale-105' : 'bg-white text-slate-600 border border-slate-100'}`}
           >
             Tất cả ({ROADMAP.length})
@@ -129,7 +125,7 @@ const App: React.FC = () => {
           {categories.map(cat => (
             <button 
               key={cat.id}
-              onClick={() => { soundService.playClick(); setFilter(cat.id); }}
+              onClick={() => { wakeUpSound(); soundService.playClick(); setFilter(cat.id); }}
               className={`px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all ${filter === cat.id ? `${cat.color} text-white scale-105` : 'bg-white text-slate-600 border border-slate-100'}`}
             >
               {cat.label}
@@ -195,7 +191,7 @@ const App: React.FC = () => {
       case 'CELEBRATION':
         const level = currentGame.levels[state.currentLevelIndex];
         return (
-          <div className="flex flex-col h-full bg-white">
+          <div className="flex flex-col h-full bg-white" onClick={wakeUpSound}>
             <div className="pt-4 px-4 pb-2">
               <div className="flex justify-between items-center mb-2">
                 <button onClick={goBackToLobby} className="text-3xl filter grayscale hover:grayscale-0 active:scale-90">🏠</button>
@@ -266,7 +262,7 @@ const App: React.FC = () => {
                 BÀI HỌC TIẾP THEO ➡️
               </button>
               <button
-                onClick={() => { soundService.playClick(); setState(prev => ({ ...prev, screen: 'START', currentLevelIndex: 0 })); }}
+                onClick={() => { wakeUpSound(); soundService.playClick(); setState(prev => ({ ...prev, screen: 'START', currentLevelIndex: 0 })); }}
                 className="text-slate-400 font-bold hover:text-slate-600"
               >
                 Chơi lại bài này 🔄
@@ -281,7 +277,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 select-none touch-none overflow-hidden bg-white">
+    <div className="fixed inset-0 select-none touch-none overflow-hidden bg-white" onClick={wakeUpSound}>
       {state.screen === 'LOBBY' ? renderLobby() : renderGameScreen()}
     </div>
   );
