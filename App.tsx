@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ScreenType, GameState, GameDefinition } from './types';
 import { ROADMAP, PRAISE_MESSAGES } from './constants';
 import { soundService } from './services/SoundService';
@@ -17,6 +17,28 @@ const App: React.FC = () => {
   const [lastPraise, setLastPraise] = useState("");
   const [filter, setFilter] = useState<string | null>(null);
 
+  // Khởi tạo âm thanh ngay khi người dùng tương tác lần đầu với trang
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      soundService.init();
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('mousedown', handleFirstInteraction);
+    };
+    window.addEventListener('touchstart', handleFirstInteraction);
+    window.addEventListener('mousedown', handleFirstInteraction);
+    return () => {
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('mousedown', handleFirstInteraction);
+    };
+  }, []);
+
+  const toggleSound = () => {
+    const newVal = !state.isSoundEnabled;
+    soundService.setEnabled(newVal);
+    setState(prev => ({ ...prev, isSoundEnabled: newVal }));
+    if (newVal) soundService.playClick();
+  };
+
   const currentGame = useMemo(() => 
     ROADMAP.find(g => g.id === state.selectedGameId) || null
   , [state.selectedGameId]);
@@ -27,7 +49,6 @@ const App: React.FC = () => {
   }, [state.currentLevelIndex, currentGame]);
 
   const selectGame = (gameId: string) => {
-    soundService.init();
     soundService.playClick();
     setState(prev => ({ ...prev, selectedGameId: gameId, screen: 'START', currentLevelIndex: 0, score: 0 }));
   };
@@ -83,15 +104,24 @@ const App: React.FC = () => {
     const filteredGames = filter ? ROADMAP.filter(g => g.category === filter) : ROADMAP;
 
     return (
-      <div className="h-full overflow-y-auto bg-[#f8fafc] p-4 pb-20 scroll-smooth">
-        <header className="text-center mb-8 mt-4">
+      <div className="h-full overflow-y-auto bg-[#f8fafc] p-4 pb-24 scroll-smooth">
+        <header className="relative text-center mb-8 mt-4">
+          <div className="absolute right-0 top-0">
+             <button 
+              onClick={toggleSound}
+              className="p-3 bg-white rounded-full shadow-sm border border-slate-100 text-2xl active:scale-90 transition-transform"
+              title={state.isSoundEnabled ? "Tắt âm thanh" : "Bật âm thanh"}
+            >
+              {state.isSoundEnabled ? "🔊" : "🔈"}
+            </button>
+          </div>
           <h1 className="text-3xl md:text-5xl font-black text-slate-800 mb-2 drop-shadow-sm">Học Viện Siêu Nhí 🧸</h1>
           <p className="text-slate-500 font-medium">Series 100+ Game Giáo Dục Toàn Diện</p>
         </header>
 
         <div className="flex flex-wrap justify-center gap-2 mb-8 sticky top-0 z-10 bg-[#f8fafc]/90 backdrop-blur py-3">
           <button 
-            onClick={() => setFilter(null)}
+            onClick={() => { soundService.playClick(); setFilter(null); }}
             className={`px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all ${!filter ? 'bg-slate-800 text-white scale-105' : 'bg-white text-slate-600 border border-slate-100'}`}
           >
             Tất cả ({ROADMAP.length})
@@ -99,7 +129,7 @@ const App: React.FC = () => {
           {categories.map(cat => (
             <button 
               key={cat.id}
-              onClick={() => setFilter(cat.id)}
+              onClick={() => { soundService.playClick(); setFilter(cat.id); }}
               className={`px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all ${filter === cat.id ? `${cat.color} text-white scale-105` : 'bg-white text-slate-600 border border-slate-100'}`}
             >
               {cat.label}
@@ -108,7 +138,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {filteredGames.map((game, idx) => (
+          {filteredGames.map((game) => (
             <button
               key={game.id}
               onClick={() => selectGame(game.id)}
@@ -236,7 +266,7 @@ const App: React.FC = () => {
                 BÀI HỌC TIẾP THEO ➡️
               </button>
               <button
-                onClick={() => setState(prev => ({ ...prev, screen: 'START', currentLevelIndex: 0 }))}
+                onClick={() => { soundService.playClick(); setState(prev => ({ ...prev, screen: 'START', currentLevelIndex: 0 })); }}
                 className="text-slate-400 font-bold hover:text-slate-600"
               >
                 Chơi lại bài này 🔄
@@ -253,12 +283,6 @@ const App: React.FC = () => {
   return (
     <div className="fixed inset-0 select-none touch-none overflow-hidden bg-white">
       {state.screen === 'LOBBY' ? renderLobby() : renderGameScreen()}
-      <style>{`
-        @keyframes stripes {
-          from { background-position: 0 0; }
-          to { background-position: 20px 0; }
-        }
-      `}</style>
     </div>
   );
 };
